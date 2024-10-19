@@ -7,7 +7,18 @@
 
 import os
 import sys
+import requests
 from datetime import datetime as dt
+
+# Mastodon config
+MASTODON_URL = os.getenv('MASTODON_URL', "https://mastodon.social") 
+MASTODON_TOKEN = os.getenv('MASTODON_TOKEN', "")
+MASTODON_VISIBILITY = os.getenv('MASTODON_VISIBILITY', 'public')
+SESSION = requests.session()
+
+# if Y, toots won't be sent and we'll write to stdout instead
+DRY_RUN = os.getenv('DRY_RUN', "N").upper()    
+
 
 def errorJob(job, errjob_dir, runtime, msg):
     ''' Report an error
@@ -23,10 +34,12 @@ def errorJob(job, errjob_dir, runtime, msg):
         fname = os.path.basename(job["fname"])
         os.rename(job["fname"], f"{today_dir}/{fname}")
         
-        # Write the error message to the file
+        # Write the error message to the file TODO: reenable
+        '''
         fh = open(f"{today_dir}/{fname}", "a")
         fh.write(msg)
         fh.close()
+        '''
     except Exception as e:
         print("Unable to mark file as errored")
         print(e)
@@ -58,18 +71,20 @@ def triggerJobs(jobs, oldjob_dir, errjob_dir, runtime):
         if pub_date <= runtime:
             # RUN!
             try:
-                print("Send toot")
+                print(job)
+                send_toot(job)
             except Exception as e:
                 errorJob(job, errjob_dir, runtime, f"Err: Job {job['fname']} failed to run correctly {e}")
                 continue
 
-            # Move the file out of the way
+            # Move the file out of the way - TODO: reenable
+            '''
             if not os.path.exists(today_dir):
                 os.makedirs(today_dir)
             
             fname = os.path.basename(job["fname"])
             os.rename(job["fname"], f"{today_dir}/{fname}")
-            
+            '''
 
 def loadJobs(newjob_dir):
     ''' Check for job files in the new dir and
@@ -91,7 +106,8 @@ def loadJobFile(file_path):
     fh = open(file_path, 'r')
     f = {
         "publish_at" : False,
-        "fname" : file_path
+        "fname" : file_path,
+        "cw" : False
         }
     
     text_buffer = []
@@ -119,6 +135,11 @@ def loadJobFile(file_path):
             have_date = True
             continue
         
+        if line_low.startswith("cw:"):
+            # There's a content warning to append
+            f["cw"] = line.replace("cw: ","").replace("CW: ","")
+            continue
+        
         # Otherwise, buffer
         text_buffer.append(line)
         
@@ -133,7 +154,48 @@ def loadJobFile(file_path):
     return f
 
 
+def send_toot(job):
+    ''' Turn the job into toot text
+        and send the toot
+    '''
+
+    # Build the dicts that we'll pass into requests
+    headers = {
+        "Authorization" : f"Bearer {MASTODON_TOKEN}"
+        }
+
+    # Build the payload
+    data = {
+        'status': job["text"],
+        'visibility': MASTODON_VISIBILITY
+        }
+
+    # Are we adding a content warning?
+    if job['cw']:
+        data['spoiler_text'] = job['cw']
+
+    # Don't send!
+    if DRY_RUN == "Y":
+        print("------")
+        print(data['status'])
+        print(data)
+        print("------")
+        return True
+
+    resp = SESSION.post(
+        f"{MASTODON_URL.strip('/')}/api/v1/statuses",
+        data=data,
+        headers=headers
+    )
+
+    if resp.status_code == 200:
+        return True
+    else:
+        raise Exception(f"Failed to post {job['fname']} ({resp.status_code})")
+
+
 if __name__ == "__main__":
+    
     job_dir = os.getenv("JOB_DIR", "/jobs")
     runtime = dt.now().astimezone()
     # Check that the heirachy exists
