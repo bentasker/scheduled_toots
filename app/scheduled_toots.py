@@ -35,11 +35,10 @@ def errorJob(job, errjob_dir, runtime, msg):
         os.rename(job["fname"], f"{today_dir}/{fname}")
         
         # Write the error message to the file TODO: reenable
-        '''
         fh = open(f"{today_dir}/{fname}", "a")
         fh.write(msg)
         fh.close()
-        '''
+
     except Exception as e:
         print("Unable to mark file as errored")
         print(e)
@@ -78,13 +77,12 @@ def triggerJobs(jobs, oldjob_dir, errjob_dir, runtime):
                 continue
 
             # Move the file out of the way - TODO: reenable
-            '''
             if not os.path.exists(today_dir):
                 os.makedirs(today_dir)
             
             fname = os.path.basename(job["fname"])
             os.rename(job["fname"], f"{today_dir}/{fname}")
-            '''
+
 
 def loadJobs(newjob_dir):
     ''' Check for job files in the new dir and
@@ -198,6 +196,7 @@ if __name__ == "__main__":
     
     job_dir = os.getenv("JOB_DIR", "/jobs")
     runtime = dt.now().astimezone()
+
     # Check that the heirachy exists
     paths = {}
     for sub in ["new", "done", "error"]:
@@ -205,7 +204,6 @@ if __name__ == "__main__":
         if not os.path.exists(f"{job_dir}/{sub}"):
             os.makedirs(f"{job_dir}/{sub}")
             
-
     jobs = loadJobs(paths["new"])
     triggerJobs(jobs, paths["done"], paths["error"], runtime)
 
