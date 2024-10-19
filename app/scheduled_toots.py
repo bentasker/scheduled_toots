@@ -9,8 +9,30 @@ import os
 import sys
 from datetime import datetime as dt
 
+def errorJob(job, errjob_dir, runtime, msg):
+    ''' Report an error
+    '''
+    try:
+        print(msg, file=sys.stderr)
+        today = runtime.strftime("%Y-%m-%d")
+        today_dir = f"{errjob_dir}/{today}"
+        
+        if not os.path.exists(today_dir):
+            os.makedirs(today_dir)
+        
+        fname = os.path.basename(job["fname"])
+        os.rename(job["fname"], f"{today_dir}/{fname}")
+        
+        # Write the error message to the file
+        fh = open(f"{today_dir}/{fname}", "a")
+        fh.write(msg)
+        fh.close()
+    except Exception as e:
+        print("Unable to mark file as errored")
+        print(e)
+        
 
-def triggerJobs(jobs, oldjob_dir, runtime):
+def triggerJobs(jobs, oldjob_dir, errjob_dir, runtime):
     ''' Iterate through jobs checking time against now
     
     Trigger those which need triggering
@@ -22,15 +44,14 @@ def triggerJobs(jobs, oldjob_dir, runtime):
     for job in jobs:
         if not job["publish_at"]:
             # job was scheduled without a time, flag but ignore
-            # TODO: should we have an "errored" dir in the heirachy?
-            print(f"Err: Job {job['fname']} has no parseable time", file=sys.stderr)
+            errorJob(job, errjob_dir, runtime, f"Err: Job {job['fname']} has no parseable time")         
             continue
         
         # Parse the date
         try:
                 pub_date = dt.strptime(job["publish_at"], '%Y-%m-%dT%H:%M:%S%Z').astimezone()
         except Exception as e:
-            print(f"Err: Job {job['fname']} time failed to parse {e}", file=sys.stderr)
+            errorJob(job, errjob_dir, runtime, f"Err: Job {job['fname']} time failed to parse {e}")
             continue            
 
         # Check if the toot is due
@@ -39,17 +60,16 @@ def triggerJobs(jobs, oldjob_dir, runtime):
             try:
                 print("Send toot")
             except Exception as e:
-                print(f"Err: Job {job['fname']} failed to run correctly {e}", file=sys.stderr)
+                errorJob(job, errjob_dir, runtime, f"Err: Job {job['fname']} failed to run correctly {e}")
+                continue
 
-            # Either way, move the file out of the way
+            # Move the file out of the way
             if not os.path.exists(today_dir):
                 os.makedirs(today_dir)
             
             fname = os.path.basename(job["fname"])
             os.rename(job["fname"], f"{today_dir}/{fname}")
             
-
-
 
 def loadJobs(newjob_dir):
     ''' Check for job files in the new dir and
@@ -109,6 +129,7 @@ def loadJobFile(file_path):
     if f["publish_at"].endswith("Z"):
         f["publish_at"] = f["publish_at"].replace("Z", "UTC")
     
+    fh.close()
     return f
 
 
@@ -117,13 +138,13 @@ if __name__ == "__main__":
     runtime = dt.now().astimezone()
     # Check that the heirachy exists
     paths = {}
-    for sub in ["new", "done"]:
+    for sub in ["new", "done", "error"]:
         paths[sub] = f"{job_dir}/{sub}"
         if not os.path.exists(f"{job_dir}/{sub}"):
             os.makedirs(f"{job_dir}/{sub}")
             
 
     jobs = loadJobs(paths["new"])
-    triggerJobs(jobs, paths["done"], runtime)
+    triggerJobs(jobs, paths["done"], paths["error"], runtime)
 
             
