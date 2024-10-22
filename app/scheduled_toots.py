@@ -90,7 +90,7 @@ def loadJobs(newjob_dir):
     '''
     jobs = []
     for f in os.listdir(newjob_dir):
-        if f.endswith(".swp"):
+        if f.endswith(".swp") or f == "template.txt":
             # Some muppet left nano open
             continue
         jobs.append(loadJobFile(f"{newjob_dir}/{f}"))
