@@ -2,7 +2,7 @@
 
 This is a small container to regularly check for and send scheduled toots.
 
-It uses a simple filesystem heirachy - files in `new` are checked and their text used as the toot body if needed
+It uses a simple filesystem heirachy - files in `new` are checked and their text used as the toot body if needed. Files are then moved into either `done` or `error` depending on their result
 
 
 
@@ -31,7 +31,7 @@ time: 12:30
 cw: This is a very bad joke
 
 
-To guys walk into a bar. Ouch
+Two guys walk into a bar. Ouch
 ```
 
 
@@ -47,7 +47,15 @@ docker run \
 -v /home/ben/tmp/jobs:/jobs \
 -e MASTODON_TOKEN="<redacted>" \
 -e MASTODON_URL="https://mastodon.bentasker.co.uk" \
-registry.bentasker.co.uk/utilities/scheduled-toots:0.1
+bentasker12/scheduled-toots::0.1.1
 ```
 
-Though my instance will likely use Kubernetes instead
+Though my instance runs on Kubernetes instead
+
+
+---
+
+### License
+
+Copyright (c) 2024 B Tasker
+Released under [MIT License](https://www.bentasker.co.uk/pages/licenses/mit-license.html)
